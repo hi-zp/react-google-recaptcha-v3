@@ -1,9 +1,9 @@
 {
-  "name": "react-google-recaptcha-v3",
-  "version": "1.11.0",
+  "name": "@hi-zp/react-google-recaptcha-v3",
+  "version": "1.12.0",
   "description": "React component for google-recaptcha v3",
-  "module": "dist/react-google-recaptcha-v3.esm.js",
-  "main": "dist/react-google-recaptcha-v3.cjs.js",
+  "module": "dist/@hi-zp/react-google-recaptcha-v3.esm.js",
+  "main": "dist/@hi-zp/react-google-recaptcha-v3.cjs.js",
   "types": "dist/types/index.d.ts",
   "scripts": {
     "test": "jest --verbose --env=jsdom",
@@ -13,12 +13,12 @@
     "dev": "NODE_OPTIONS=--openssl-legacy-provider webpack-dev-server --config webpack.config.js",
     "lint": "tslint -c tslint.json 'src/**/*.ts'"
   },
-  "author": "Duong Tran",
-  "homepage": "https://github.com/t49tran/react-google-recaptcha-v3",
+  "author": "",
+  "homepage": "https://github.com/hi-zp/react-google-recaptcha-v3",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/t49tran/react-google-recaptcha-v3"
+    "url": "https://github.com/hi-zp/react-google-recaptcha-v3.git"
   },
   "peerDependencies": {
     "react": "^16.3 || ^17.0 || ^18.0 || ^19.0",
@@ -35,13 +35,13 @@
     "@types/node": "14.0.1",
     "@types/react": "17.0.2",
     "@types/react-dom": "17.0.2",
-    "ts-loader": "^8.4.0",
+    "awesome-typescript-loader": "5.2.1",
     "dotenv-webpack": "1.8.0",
     "html-webpack-plugin": "^4.5.2",
     "jest": "26.6.3",
     "react": "17.0.2",
     "react-dom": "17.0.2",
-    "rollup": "^2.79.2",
+    "rollup": "1.14.3",
     "rollup-plugin-commonjs": "10.0.0",
     "rollup-plugin-node-resolve": "5.0.1",
     "rollup-plugin-sourcemaps": "0.4.2",
