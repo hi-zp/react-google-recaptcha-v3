@@ -48,6 +48,19 @@ const cleanGstaticRecaptchaScript = () => {
 };
 
 /**
+ * Reference counter for script instances
+ * Key: scriptId, Value: reference count
+ */
+const scriptRefCounts: Map<string, number> = new Map();
+
+/**
+ * Global reference counter for grecaptcha instances
+ * This tracks all providers using grecaptcha, regardless of scriptId
+ * Used to determine when to clean up ___grecaptcha_cfg
+ */
+let globalGrecaptchaRefCount = 0;
+
+/**
  * Function to check if script has already been injected
  *
  * @param scriptId
@@ -55,6 +68,36 @@ const cleanGstaticRecaptchaScript = () => {
  */
 export const isScriptInjected = (scriptId: string) =>
   !!document.querySelector(`#${scriptId}`);
+
+/**
+ * Function to increment reference count for a script
+ *
+ * @param scriptId
+ * @returns current reference count
+ */
+const incrementScriptRefCount = (scriptId: string): number => {
+  const currentCount = scriptRefCounts.get(scriptId) || 0;
+  const newCount = currentCount + 1;
+  scriptRefCounts.set(scriptId, newCount);
+  return newCount;
+};
+
+/**
+ * Function to decrement reference count for a script
+ *
+ * @param scriptId
+ * @returns current reference count after decrement
+ */
+const decrementScriptRefCount = (scriptId: string): number => {
+  const currentCount = scriptRefCounts.get(scriptId) || 0;
+  const newCount = Math.max(0, currentCount - 1);
+  if (newCount === 0) {
+    scriptRefCounts.delete(scriptId);
+  } else {
+    scriptRefCounts.set(scriptId, newCount);
+  }
+  return newCount;
+};
 
 /**
  * Function to remove default badge
@@ -103,25 +146,74 @@ export const cleanBadge = (container?: HTMLElement | string) => {
 
 /**
  * Function to clean google recaptcha script
+ * Only cleans shared resources (script, global config) when ref count reaches 0
+ * Always cleans provider-specific resources (badge, clientId)
  *
  * @param scriptId
  * @param container
+ * @param clientId - The clientId returned from grecaptcha.render() (only for explicit render mode)
+ * @param useEnterprise - Whether using enterprise version
  */
-export const cleanGoogleRecaptcha = (scriptId: string, container?: HTMLElement | string) => {
-  // remove badge
+export const cleanGoogleRecaptcha = (
+  scriptId: string,
+  container?: HTMLElement | string,
+  clientId?: number | string,
+  useEnterprise?: boolean
+) => {
+  // Always remove badge for this specific provider
   cleanBadge(container);
 
-  // remove old config from window
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  (window as any).___grecaptcha_cfg = undefined;
+  // Reset grecaptcha clientId if provided (explicit render mode)
+  // This is important to clean up grecaptcha internal state
+  if (clientId !== undefined && typeof window !== 'undefined') {
+    try {
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const grecaptchaGlobal = (window as any).grecaptcha;
+      
+      if (grecaptchaGlobal) {
+        const grecaptcha = useEnterprise
+          ? grecaptchaGlobal?.enterprise
+          : grecaptchaGlobal;
 
-  // remove script
-  const script = document.querySelector(`#${scriptId}`);
-  if (script) {
-    script.remove();
+        if (grecaptcha && typeof grecaptcha.reset === 'function') {
+          grecaptcha.reset(clientId);
+        }
+      }
+      // If grecaptcha not loaded yet, skip reset (but continue with other cleanup)
+    } catch (error) {
+      // Silently fail if reset fails (e.g., clientId already cleaned)
+      // This can happen if grecaptcha was already cleaned or clientId is invalid
+    }
   }
 
-  cleanGstaticRecaptchaScript();
+  // Decrement reference count
+  const remainingRefs = decrementScriptRefCount(scriptId);
+  
+  // Decrement global grecaptcha reference count
+  globalGrecaptchaRefCount = Math.max(0, globalGrecaptchaRefCount - 1);
+
+  // Only clean shared resources if no other providers are using this script
+  if (remainingRefs === 0) {
+    // remove script
+    const script = document.querySelector(`#${scriptId}`);
+    if (script) {
+      script.remove();
+    }
+  }
+
+  // Clean up global grecaptcha config only when no providers are using it
+  if (globalGrecaptchaRefCount === 0) {
+    // Clean up ___grecaptcha_cfg as no providers are using grecaptcha anymore
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    (window as any).___grecaptcha_cfg = undefined;
+
+    // Only clean gstatic script if no other scripts are using grecaptcha
+    // Check if there are any other recaptcha scripts still in the DOM
+    const otherRecaptchaScripts = document.querySelectorAll('script[id^="google-recaptcha"]');
+    if (otherRecaptchaScripts.length === 0) {
+      cleanGstaticRecaptchaScript();
+    }
+  }
 };
 
 /**
@@ -147,12 +239,18 @@ export const injectGoogleReCaptchaScript = ({
 }: IInjectGoogleReCaptchaScriptParams) => {
   const scriptId = id || 'google-recaptcha-v3';
 
-  // Script has already been injected, just call onLoad and does othing else
+  // Script has already been injected, just call onLoad and increment ref count
   if (isScriptInjected(scriptId)) {
+    incrementScriptRefCount(scriptId);
+    globalGrecaptchaRefCount++;
     onLoad();
 
     return;
   }
+
+  // Increment ref count for new script
+  incrementScriptRefCount(scriptId);
+  globalGrecaptchaRefCount++;
 
   /**
    * Generate the js script

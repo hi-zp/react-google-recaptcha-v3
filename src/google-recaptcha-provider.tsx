@@ -75,6 +75,9 @@ export function GoogleReCaptchaProvider({
     execute: Function;
   }>(null);
   const clientId = useRef<number | string>(reCaptchaKey);
+  const isMountedRef = useRef(true);
+  const onLoadCallbackRef = useRef<(() => void) | null>(null);
+  const onLoadCallbackNameRef = useRef<string | null>(null);
 
   const scriptPropsJson = JSON.stringify(scriptProps);
   const parametersJson = JSON.stringify(container?.parameters);
@@ -88,25 +91,89 @@ export function GoogleReCaptchaProvider({
       return;
     }
 
+    isMountedRef.current = true;
     const scriptId = scriptProps?.id || 'google-recaptcha-v3';
-    const onLoadCallbackName = scriptProps?.onLoadCallbackName || 'onRecaptchaLoadCallback';
+    // Generate unique callback name for each provider instance to avoid conflicts
+    // Use scriptId to ensure uniqueness per provider instance
+    const onLoadCallbackName = scriptProps?.onLoadCallbackName || `onRecaptchaLoadCallback_${scriptId}`;
 
-    ((window as unknown) as {[key: string]: () => void})[onLoadCallbackName] = () => {
+    // Create a unique callback for this provider instance
+    const onLoadCallback = () => {
+      // Check if provider is still mounted before executing
+      if (!isMountedRef.current) {
+        return;
+      }
+
       /* eslint-disable @typescript-eslint/no-explicit-any */
+      if (!window || !(window as any).grecaptcha) {
+        return;
+      }
+
       const grecaptcha = useEnterprise
-        ? (window as any).grecaptcha.enterprise
+        ? (window as any).grecaptcha?.enterprise
         : (window as any).grecaptcha;
 
-      const params = {
-        badge: 'inline',
-        size: 'invisible',
-        sitekey: reCaptchaKey,
-        ...(container?.parameters || {})
-      };
-      clientId.current = grecaptcha.render(container?.element, params);
+      if (!grecaptcha) {
+        return;
+      }
+
+      // Validate required parameters
+      if (!reCaptchaKey) {
+        logWarningMessage('Missing required parameters: sitekey');
+        return;
+      }
+
+      // Only render if container is provided (explicit render mode)
+      if (!container?.element) {
+        // For default render mode, no need to call grecaptcha.render()
+        // The script is loaded with render=sitekey, so grecaptcha is ready to use
+        return;
+      }
+
+      try {
+        // Validate required parameters before calling grecaptcha.render()
+        if (!reCaptchaKey) {
+          logWarningMessage('Missing required parameters: sitekey');
+          return;
+        }
+
+        const params = {
+          badge: 'inline',
+          size: 'invisible',
+          sitekey: reCaptchaKey,
+          ...(container?.parameters || {})
+        };
+        
+        // Ensure sitekey is present
+        if (!params.sitekey) {
+          logWarningMessage('Missing required parameters: sitekey');
+          return;
+        }
+
+        // Only call grecaptcha.render() if grecaptcha is ready
+        if (typeof grecaptcha.render !== 'function') {
+          logWarningMessage('grecaptcha.render is not available');
+          return;
+        }
+
+        clientId.current = grecaptcha.render(container.element, params);
+      } catch (error) {
+        // Silently fail if render fails (e.g., provider already unmounted)
+        logWarningMessage(`Failed to render recaptcha: ${error}`);
+      }
     };
 
+    // Store callback reference and name for cleanup
+    onLoadCallbackRef.current = onLoadCallback;
+    onLoadCallbackNameRef.current = onLoadCallbackName;
+    ((window as unknown) as {[key: string]: () => void})[onLoadCallbackName] = onLoadCallback;
+
     const onLoad = () => {
+      // Check if provider is still mounted before executing
+      if (!isMountedRef.current) {
+        return;
+      }
+
       if (!window || !(window as any).grecaptcha) {
         logWarningMessage(
           `<GoogleRecaptchaProvider /> ${GoogleRecaptchaError.SCRIPT_NOT_AVAILABLE}`
@@ -119,7 +186,17 @@ export function GoogleReCaptchaProvider({
         ? (window as any).grecaptcha.enterprise
         : (window as any).grecaptcha;
 
+      if (!grecaptcha) {
+        return;
+      }
+
       grecaptcha.ready(() => {
+        // Check if provider is still mounted before updating state
+        // This prevents React warning about state update on unmounted component
+        if (!isMountedRef.current) {
+          return;
+        }
+
         setGreCaptchaInstance(grecaptcha);
       });
     };
@@ -140,7 +217,20 @@ export function GoogleReCaptchaProvider({
     });
 
     return () => {
-      cleanGoogleRecaptcha(scriptId, container?.element);
+      // Mark as unmounted to prevent callbacks from executing
+      isMountedRef.current = false;
+
+      // Clean up the global callback using stored name
+      if (onLoadCallbackNameRef.current && onLoadCallbackRef.current) {
+        if ((window as any)[onLoadCallbackNameRef.current] === onLoadCallbackRef.current) {
+          delete ((window as any)[onLoadCallbackNameRef.current]);
+        }
+      }
+
+      // Only pass clientId if it's a number (explicit render mode)
+      // If it's a string (reCaptchaKey), it means we're using default render mode
+      const clientIdToClean = typeof clientId.current === 'number' ? clientId.current : undefined;
+      cleanGoogleRecaptcha(scriptId, container?.element, clientIdToClean, useEnterprise);
     };
   }, [
     useEnterprise,
@@ -160,9 +250,22 @@ export function GoogleReCaptchaProvider({
         );
       }
 
-      return greCaptchaInstance.execute(clientId.current, { action });
+      // For explicit render mode (with container), use the numeric clientId
+      // The clientId must be a number returned from grecaptcha.render()
+      if (container?.element) {
+        // Wait for clientId to be set (from grecaptcha.render())
+        if (typeof clientId.current !== 'number') {
+          throw new Error(
+            '<GoogleReCaptchaProvider /> Recaptcha clientId not ready. Please wait for recaptcha to load.'
+          );
+        }
+        return greCaptchaInstance.execute(clientId.current, { action });
+      }
+
+      // For default render mode (without container), use the sitekey directly
+      return greCaptchaInstance.execute(reCaptchaKey, { action });
     },
-    [greCaptchaInstance, clientId]
+    [greCaptchaInstance, clientId, container?.element, reCaptchaKey]
   );
 
   const googleReCaptchaContextValue = useMemo(
