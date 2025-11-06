@@ -16,5 +16,7 @@ describe('useGoogleReCaptcha hook', () => {
     });
 
     expect(result.current).toHaveProperty('executeRecaptcha');
+    expect(result.current).toHaveProperty('isLoaded');
+    expect(typeof result.current.isLoaded).toBe('boolean');
   });
 });

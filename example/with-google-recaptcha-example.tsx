@@ -28,10 +28,15 @@ class ReCaptchaComponent extends Component<{}, { token?: string }> {
 
   render() {
     const { token } = this.state;
+    const { isLoaded } = (this.props as IWithGoogleReCaptchaProps)
+      .googleReCaptchaProps;
     return (
       <div>
         <h3>With Google Recaptcha HOC Example</h3>
-        <button onClick={this.handleVerifyRecaptcha}>Verify Recaptcha</button>
+        <button onClick={this.handleVerifyRecaptcha} disabled={!isLoaded}>
+          Verify Recaptcha
+        </button>
+        {!isLoaded && <p>Loading Recaptcha...</p>}
         <p>Token: {token}</p>
       </div>
     );

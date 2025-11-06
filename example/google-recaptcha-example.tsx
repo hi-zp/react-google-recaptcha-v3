@@ -2,7 +2,7 @@ import React, { useState, FC, useCallback, useEffect } from 'react';
 import { useGoogleReCaptcha } from '../src/use-google-recaptcha';
 
 export const GoogleRecaptchaExample: FC = () => {
-  const { executeRecaptcha } = useGoogleReCaptcha();
+  const { executeRecaptcha, isLoaded } = useGoogleReCaptcha();
   const [token, setToken] = useState('');
   const [noOfVerifications, setNoOfVerifications] = useState(0);
   const [dynamicAction, setDynamicAction] = useState('homepage');
@@ -49,7 +49,10 @@ export const GoogleRecaptchaExample: FC = () => {
         <button onClick={handleCommitAction}>Change action</button>
       </div>
       <br />
-      <button onClick={clickHandler}>Run verify</button>
+      <button onClick={clickHandler} disabled={!isLoaded}>
+        Run verify
+      </button>
+      {!isLoaded && <p>Loading Recaptcha...</p>}
       <br />
       {token && <p>Token: {token}</p>}
       <p> No of verifications: {noOfVerifications}</p>

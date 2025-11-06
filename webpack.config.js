@@ -21,13 +21,10 @@ module.exports = {
         test: /\.tsx?$/,
         use: [
           {
-            loader: 'awesome-typescript-loader',
+            loader: 'ts-loader',
             options: {
               transpileOnly: true,
-              useCache: true,
-              cacheDirectory: '.cache/awesome-typescript-loader',
-              configFileName: 'tsconfig.example.json',
-              reportFiles: ['example/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}']
+              configFile: 'tsconfig.example.json'
             }
           }
         ],

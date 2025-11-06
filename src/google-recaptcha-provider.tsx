@@ -47,6 +47,7 @@ interface IGoogleReCaptchaProviderProps {
 export interface IGoogleReCaptchaConsumerProps {
   executeRecaptcha?: (action?: string) => Promise<string>;
   container?: string | HTMLElement;
+  isLoaded: boolean;
 }
 
 const GoogleReCaptchaContext = createContext<IGoogleReCaptchaConsumerProps>({
@@ -55,7 +56,8 @@ const GoogleReCaptchaContext = createContext<IGoogleReCaptchaConsumerProps>({
     throw Error(
       'GoogleReCaptcha Context has not yet been implemented, if you are using useGoogleReCaptcha hook, make sure the hook is called inside component wrapped by GoogleRecaptchaProvider'
     );
-  }
+  },
+  isLoaded: false
 });
 
 const { Consumer: GoogleReCaptchaConsumer } = GoogleReCaptchaContext;
@@ -167,6 +169,7 @@ export function GoogleReCaptchaProvider({
     () => ({
       executeRecaptcha: greCaptchaInstance ? executeRecaptcha : undefined,
       container: container?.element,
+      isLoaded: !!greCaptchaInstance,
     }),
     [executeRecaptcha, greCaptchaInstance, container?.element]
   );

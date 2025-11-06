@@ -47,7 +47,10 @@ describe('withGoogleRecaptcha HOC', () => {
     render(<TestProvider onLoad={testFn} />);
 
     expect(testFn).toBeCalledWith(
-      expect.objectContaining({ executeRecaptcha: undefined })
+      expect.objectContaining({ 
+        executeRecaptcha: undefined,
+        isLoaded: false
+      })
     );
   });
 });
