@@ -249,6 +249,31 @@ ReactDom.render(
 
 An example of how to use these two hooks can found inside the `example` folder. You will need to provide an .env file if you want to run it on your own machine.
 
-```
-RECAPTCHA_KEY=[YOUR_RECAPTCHA_KEY]
-```
+### Running the Example Locally
+
+1. Copy the `.env.example` file to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file and add your reCAPTCHA site key:
+   ```
+   RECAPTCHA_KEY=your_recaptcha_site_key_here
+   ```
+
+3. Install dependencies (if not already installed):
+   ```bash
+   npm install
+   ```
+
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+   The development server will start at `http://localhost:3000` and automatically open in your browser.
+
+5. Build the example for production:
+   ```bash
+   npm run build-example
+   ```
